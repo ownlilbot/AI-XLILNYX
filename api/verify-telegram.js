@@ -21,10 +21,6 @@ export default async function handler(req, res) {
             hash
         } = req.body || {};
 
-        /* =========================================
-           CEK DATA TELEGRAM
-           ========================================= */
-
         if (!id || !auth_date || !hash) {
             return res.status(400).json({
                 success: false,
@@ -47,20 +43,13 @@ export default async function handler(req, res) {
             });
         }
 
-
-        /* =========================================
-           VALIDASI WAKTU LOGIN
-           ========================================= */
+        /* CEK AUTH DATE */
 
         const now =
             Math.floor(Date.now() / 1000);
 
         const authTime =
             Number(auth_date);
-
-        /*
-         * Login Telegram maksimal 10 menit.
-         */
 
         if (
             !Number.isFinite(authTime) ||
@@ -70,30 +59,30 @@ export default async function handler(req, res) {
             return res.status(401).json({
                 success: false,
                 message:
-                    "Data login Telegram sudah kedaluwarsa."
+                    "Login Telegram sudah kedaluwarsa."
             });
 
         }
 
-
-        /* =========================================
-           VALIDASI HASH TELEGRAM
-           ========================================= */
+        /* VALIDASI HASH */
 
         const dataCheckString =
             Object.keys(req.body)
-                .filter(key => key !== "hash")
+                .filter(
+                    key => key !== "hash"
+                )
                 .sort()
-                .map(key => `${key}=${req.body[key]}`)
+                .map(
+                    key =>
+                        `${key}=${req.body[key]}`
+                )
                 .join("\n");
-
 
         const secretKey =
             crypto
                 .createHash("sha256")
                 .update(BOT_TOKEN)
                 .digest();
-
 
         const calculatedHash =
             crypto
@@ -104,12 +93,7 @@ export default async function handler(req, res) {
                 .update(dataCheckString)
                 .digest("hex");
 
-
-        const hashValid =
-            calculatedHash === hash;
-
-
-        if (!hashValid) {
+        if (calculatedHash !== hash) {
 
             return res.status(401).json({
                 success: false,
@@ -119,23 +103,18 @@ export default async function handler(req, res) {
 
         }
 
-
-        /* =========================================
-           CEK MEMBERSHIP CHANNEL
-           ========================================= */
+        /* CEK MEMBERSHIP */
 
         const telegramURL =
             `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember` +
             `?chat_id=${encodeURIComponent(CHANNEL)}` +
             `&user_id=${encodeURIComponent(id)}`;
 
-
         const response =
             await fetch(telegramURL);
 
         const data =
             await response.json();
-
 
         if (!data.ok) {
 
@@ -155,20 +134,15 @@ export default async function handler(req, res) {
 
         }
 
-
         const memberStatus =
             data.result?.status;
-
 
         const verified =
             memberStatus === "member" ||
             memberStatus === "administrator" ||
             memberStatus === "creator";
 
-
-        /* =========================================
-           OWNER
-           ========================================= */
+        /* OWNER */
 
         const OWNER_ID =
             "6282298313";
@@ -176,10 +150,7 @@ export default async function handler(req, res) {
         const isOwner =
             String(id) === OWNER_ID;
 
-
-        /* =========================================
-           HASIL VERIFIKASI
-           ========================================= */
+        /* VERIFIED */
 
         if (verified) {
 
@@ -217,7 +188,6 @@ export default async function handler(req, res) {
 
         }
 
-
         return res.status(200).json({
 
             success: true,
@@ -228,16 +198,6 @@ export default async function handler(req, res) {
 
             owner: isOwner,
 
-            user: {
-                id: String(id),
-                first_name:
-                    first_name || "",
-                last_name:
-                    last_name || "",
-                username:
-                    username || ""
-            },
-
             status:
                 memberStatus,
 
@@ -245,7 +205,6 @@ export default async function handler(req, res) {
                 "Akun Telegram terdeteksi, tetapi belum bergabung ke channel."
 
         });
-
 
     } catch (error) {
 
@@ -255,14 +214,11 @@ export default async function handler(req, res) {
         );
 
         return res.status(500).json({
-
             success: false,
-
             message:
                 "Terjadi kesalahan pada server."
-
         });
 
     }
 
-                    }
+}
