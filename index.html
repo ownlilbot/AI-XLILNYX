@@ -615,10 +615,289 @@ body{
         background-position:0% 50%;
     }
 }
+
+/* =========================================
+   TELEGRAM VERIFICATION POPUP
+   ========================================= */
+
+.verify-overlay{
+    position:fixed;
+    inset:0;
+    width:100%;
+    height:100dvh;
+
+    background:rgba(0,0,0,.78);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    padding:20px;
+
+    z-index:99999;
+}
+
+.verify-popup{
+    width:100%;
+    max-width:380px;
+
+    background:
+        linear-gradient(
+            160deg,
+            #11162f,
+            #080b1c
+        );
+
+    border:1px solid rgba(91,124,250,.35);
+    border-radius:24px;
+
+    padding:28px 22px;
+
+    text-align:center;
+
+    box-shadow:
+        0 0 30px rgba(91,124,250,.18),
+        0 20px 60px rgba(0,0,0,.6);
+
+    animation:verifyPopup .35s ease;
+}
+
+@keyframes verifyPopup{
+    from{
+        opacity:0;
+        transform:translateY(20px) scale(.95);
+    }
+
+    to{
+        opacity:1;
+        transform:translateY(0) scale(1);
+    }
+}
+
+.verify-icon{
+    width:70px;
+    height:70px;
+
+    margin:0 auto 18px;
+
+    border-radius:20px;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    background:linear-gradient(
+        145deg,
+        #5b7cfa,
+        #324adf
+    );
+
+    color:white;
+
+    font-size:32px;
+
+    box-shadow:
+        0 0 20px rgba(91,124,250,.4);
+}
+
+.verify-title{
+    font-family:'Poppins',sans-serif;
+
+    font-size:21px;
+    font-weight:800;
+
+    margin-bottom:10px;
+
+    color:#f4f6ff;
+}
+
+.verify-desc{
+    font-size:13px;
+    line-height:1.7;
+
+    color:#969fca;
+
+    margin-bottom:20px;
+}
+
+.telegram-btn,
+.verify-btn,
+.continue-btn{
+
+    width:100%;
+    height:50px;
+
+    border:none;
+    border-radius:14px;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    gap:9px;
+
+    font-family:'Poppins',sans-serif;
+    font-weight:700;
+
+    cursor:pointer;
+
+    transition:.25s;
+
+    margin-top:10px;
+}
+
+.telegram-btn{
+    background:#229ed9;
+    color:white;
+
+    box-shadow:
+        0 6px 18px rgba(34,158,217,.25);
+}
+
+.telegram-btn:hover{
+    transform:translateY(-2px);
+
+    box-shadow:
+        0 10px 25px rgba(34,158,217,.4);
+}
+
+.verify-btn{
+    background:linear-gradient(
+        145deg,
+        #5b7cfa,
+        #324adf
+    );
+
+    color:white;
+
+    box-shadow:
+        0 6px 18px rgba(91,124,250,.3);
+}
+
+.verify-btn:hover{
+    transform:translateY(-2px);
+}
+
+.continue-btn{
+    display:none;
+
+    background:#39ff88;
+    color:#06120b;
+
+    box-shadow:
+        0 0 18px rgba(57,255,136,.25);
+}
+
+.continue-btn:hover{
+    transform:translateY(-2px);
+}
+
+.verify-status{
+    min-height:20px;
+
+    margin-top:16px;
+
+    font-size:12px;
+    line-height:1.5;
+
+    color:#737da8;
+}
+
+.verify-status.success{
+    color:#39ff88;
+
+    text-shadow:
+        0 0 8px rgba(57,255,136,.5);
+}
+
+.verify-status.error{
+    color:#ff5b7c;
+
+    text-shadow:
+        0 0 8px rgba(255,91,124,.35);
+}
+
+.verify-user{
+    display:none;
+
+    margin-top:12px;
+
+    padding:9px 12px;
+
+    border-radius:10px;
+
+    background:rgba(57,255,136,.06);
+    border:1px solid rgba(57,255,136,.15);
+
+    color:#39ff88;
+
+    font-size:12px;
+}
 </style>
 </head>
 
 <body>
+<div class="verify-overlay" id="verifyOverlay">
+
+    <div class="verify-popup">
+
+        <div class="verify-icon">
+            <i class="fa-brands fa-telegram"></i>
+        </div>
+
+        <div class="verify-title">
+            VERIFIKASI AKSES
+        </div>
+
+        <div class="verify-desc">
+            Untuk menggunakan
+            <b>⛧ COTANCE STORE V1 ⛧</b>,
+            silakan bergabung terlebih dahulu
+            ke channel Telegram kami.
+        </div>
+
+        <button
+            class="telegram-btn"
+            onclick="openTelegram()"
+        >
+            <i class="fa-brands fa-telegram"></i>
+            JOIN CHANNEL
+        </button>
+
+        <button
+            class="verify-btn"
+            onclick="verifyTelegram()"
+        >
+            <i class="fa-solid fa-shield-halved"></i>
+            VERIFIKASI
+        </button>
+
+        <button
+            class="continue-btn"
+            id="continueBtn"
+            onclick="continueWebsite()"
+        >
+            <i class="fa-solid fa-arrow-right"></i>
+            LANJUTKAN
+        </button>
+
+        <div
+            class="verify-user"
+            id="verifyUser"
+        ></div>
+
+        <div
+            class="verify-status"
+            id="verifyStatus"
+        >
+            Silakan Join Channel lalu klik Verifikasi.
+        </div>
+
+    </div>
+
+</div>
 
 <div class="bg">
     <div class="blur blur1"></div>
@@ -715,6 +994,197 @@ OWNER   : XLILNYX
 </div>
 
 <script>
+
+/* =========================================
+   TELEGRAM VERIFICATION SYSTEM
+   ========================================= */
+
+const TELEGRAM_CHANNEL =
+    "https://t.me/allaboutxlilnyx";
+
+const VERIFY_API =
+    "/api/verify-telegram";
+
+
+function openTelegram(){
+
+    window.open(
+        TELEGRAM_CHANNEL,
+        "_blank"
+    );
+
+}
+
+
+/* =========================================
+   VERIFY TELEGRAM
+   ========================================= */
+
+async function verifyTelegram(){
+
+    const status =
+        document.getElementById("verifyStatus");
+
+    const continueBtn =
+        document.getElementById("continueBtn");
+
+    status.className =
+        "verify-status";
+
+    status.innerHTML =
+        '<i class="fa-solid fa-spinner fa-spin"></i> Memeriksa keanggotaan...';
+
+    continueBtn.style.display =
+        "none";
+
+
+    try{
+
+        /*
+         * Mengambil Telegram User ID.
+         *
+         * Jika endpoint kamu menggunakan
+         * parameter user_id, bagian ini
+         * akan mengirim user_id tersebut.
+         */
+
+        const userId =
+            localStorage.getItem(
+                "telegram_user_id"
+            );
+
+
+        if(!userId){
+
+            status.className =
+                "verify-status error";
+
+            status.innerHTML =
+                '<i class="fa-solid fa-circle-exclamation"></i> Akun Telegram belum terhubung.';
+
+            return;
+        }
+
+
+        const response =
+            await fetch(
+                VERIFY_API,
+                {
+                    method:"POST",
+
+                    headers:{
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:JSON.stringify({
+                        user_id:userId
+                    })
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        console.log(
+            "VERIFY RESPONSE:",
+            data
+        );
+
+
+        if(
+            data.success === true ||
+            data.verified === true ||
+            data.isMember === true
+        ){
+
+            status.className =
+                "verify-status success";
+
+            status.innerHTML =
+                '<i class="fa-solid fa-circle-check"></i> Verifikasi berhasil.';
+
+
+            continueBtn.style.display =
+                "flex";
+
+        }else{
+
+            status.className =
+                "verify-status error";
+
+            status.innerHTML =
+                '<i class="fa-solid fa-circle-xmark"></i> Kamu belum bergabung ke channel.';
+
+        }
+
+    }catch(error){
+
+        console.log(
+            "VERIFY ERROR:",
+            error
+        );
+
+        status.className =
+            "verify-status error";
+
+        status.innerHTML =
+            '<i class="fa-solid fa-triangle-exclamation"></i> Gagal menghubungi server verifikasi.';
+
+    }
+
+}
+
+
+/* =========================================
+   CONTINUE WEBSITE
+   ========================================= */
+
+function continueWebsite(){
+
+    localStorage.setItem(
+        "cotance_verified",
+        "true"
+    );
+
+    const overlay =
+        document.getElementById(
+            "verifyOverlay"
+        );
+
+    overlay.style.display =
+        "none";
+
+}
+
+
+/* =========================================
+   CHECK VERIFIED STATUS
+   ========================================= */
+
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+
+        const verified =
+            localStorage.getItem(
+                "cotance_verified"
+            );
+
+
+        if(verified === "true"){
+
+            document.getElementById(
+                "verifyOverlay"
+            ).style.display =
+                "none";
+
+        }
+
+    }
+);
 
 const chatBox = document.getElementById("chatBox");
 function addMessage(text, sender){
@@ -890,4 +1360,4 @@ async function sendMessage(){
 </script>
 
 </body>
-  </html>
+</html>
