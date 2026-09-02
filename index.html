@@ -835,6 +835,25 @@ body{
 
     font-size:12px;
 }
+
+/* TELEGRAM LOGIN WIDGET FIX */
+
+#telegramLogin{
+    width:100%;
+    min-height:48px;
+
+    margin:12px 0 4px;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    overflow:hidden;
+}
+
+#telegramLogin iframe{
+    max-width:100% !important;
+}
 </style>
 </head>
 
@@ -866,8 +885,6 @@ body{
     JOIN CHANNEL
 </button>
 
-<!-- TELEGRAM LOGIN WIDGET -->
-<div id="telegramLogin"></div>
 
 <button
     class="verify-btn"
@@ -997,24 +1014,15 @@ OWNER   : XLILNYX
 </div>
 
 <script>
-
 /* =========================================
-   TELEGRAM VERIFICATION SYSTEM - FIX
-   ========================================= */
+   TELEGRAM VERIFICATION - TANPA LOGIN
+========================================= */
 
-const TELEGRAM_CHANNEL =
-    "https://t.me/allaboutxlilnyx";
-
-const TELEGRAM_BOT_USERNAME =
-    "xlilnyxpribadibot";
+const TELEGRAM_BOT =
+    "https://t.me/xlilnyxpribadibot";
 
 const VERIFY_API =
     "/api/verify-telegram";
-
-
-/* =========================================
-   ELEMENT
-   ========================================= */
 
 const verifyOverlay =
     document.getElementById("verifyOverlay");
@@ -1022,190 +1030,115 @@ const verifyOverlay =
 const verifyStatus =
     document.getElementById("verifyStatus");
 
-const verifyUser =
-    document.getElementById("verifyUser");
-
 const continueBtn =
     document.getElementById("continueBtn");
 
-const telegramLogin =
-    document.getElementById("telegramLogin");
 
+/* ==============================
+   JOIN CHANNEL
+============================== */
 
-/* =========================================
-   OPEN CHANNEL
-   ========================================= */
-
-function openTelegram(){
+function openTelegram() {
 
     window.open(
-        TELEGRAM_CHANNEL,
-        "_blank",
-        "noopener,noreferrer"
+        "https://t.me/allaboutxlilnyx",
+        "_blank"
     );
 
 }
 
 
-/* =========================================
-   LOAD TELEGRAM LOGIN WIDGET
-   ========================================= */
+/* ==============================
+   OPEN BOT
+============================== */
 
-function loadTelegramWidget(){
+function openVerifyBot() {
 
-    if(!telegramLogin){
-        return;
-    }
-
-    if(
-        document.getElementById(
-            "telegram-login-script"
-        )
-    ){
-        return;
-    }
-
-
-    window.onTelegramAuth =
-        onTelegramAuth;
-
-
-    const script =
-        document.createElement("script");
-
-
-    script.id =
-        "telegram-login-script";
-
-
-    script.src =
-        "https://telegram.org/js/telegram-widget.js?22";
-
-
-    script.async = true;
-
-
-    script.setAttribute(
-        "data-telegram-login",
-        TELEGRAM_BOT_USERNAME
+    window.open(
+        TELEGRAM_BOT + "?start=verify",
+        "_blank"
     );
 
-
-    script.setAttribute(
-        "data-size",
-        "large"
-    );
-
-
-    script.setAttribute(
-        "data-userpic",
-        "false"
-    );
-
-
-    script.setAttribute(
-        "data-request-access",
-        "write"
-    );
-
-
-    script.setAttribute(
-        "data-onauth",
-        "onTelegramAuth(user)"
-    );
-
-
-    telegramLogin.appendChild(
-        script
-    );
 }
 
 
-/* =========================================
-   TELEGRAM LOGIN CALLBACK
-   ========================================= */
+/* ==============================
+   VERIFY
+============================== */
 
-async function onTelegramAuth(user){
-
-    console.log(
-        "TELEGRAM LOGIN:",
-        user
-    );
-
-
-    if(
-        !user ||
-        !user.id ||
-        !user.hash
-    ){
-
-        verifyStatus.className =
-            "verify-status error";
-
-        verifyStatus.innerHTML =
-            '<i class="fa-solid fa-circle-xmark"></i> Data login Telegram tidak valid.';
-
-        return;
-    }
-
+async function verifyTelegram() {
 
     verifyStatus.className =
         "verify-status";
 
-
     verifyStatus.innerHTML =
-        '<i class="fa-solid fa-spinner fa-spin"></i> Memverifikasi akun Telegram...';
+        '<i class="fa-solid fa-spinner fa-spin"></i> Memeriksa verifikasi...';
 
 
-    try{
-
-        /*
-         * Kirim DATA ASLI dari Telegram
-         * ke backend.
-         *
-         * Backend akan memeriksa:
-         *
-         * hash
-         * auth_date
-         * user ID
-         *
-         * menggunakan TELEGRAM_BOT_TOKEN.
-         */
-
-        const response =
-            await fetch(
-                VERIFY_API +
-                "?action=auth",
-                {
-                    method:"POST",
-
-                    headers:{
-                        "Content-Type":
-                            "application/json"
-                    },
-
-                    credentials:"include",
-
-                    body:
-                        JSON.stringify(user)
-                }
-            );
-
-
-        const data =
-            await response.json();
-
-
-        console.log(
-            "AUTH RESPONSE:",
-            data
+    const params =
+        new URLSearchParams(
+            window.location.search
         );
 
+    const token =
+        params.get("verify");
 
-        if(
-            !response.ok ||
-            data.success !== true
-        ){
+
+    /* TOKEN DARI BOT */
+
+    if (token) {
+
+        try {
+
+            const response =
+                await fetch(
+                    VERIFY_API + "?action=claim",
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json"
+                        },
+
+                        credentials: "include",
+
+                        body: JSON.stringify({
+                            token: token
+                        })
+                    }
+                );
+
+            const data =
+                await response.json();
+
+
+            if (
+                data.success === true &&
+                data.verified === true
+            ) {
+
+                verifyStatus.className =
+                    "verify-status success";
+
+                verifyStatus.innerHTML =
+                    '<i class="fa-solid fa-circle-check"></i> Verifikasi berhasil!';
+
+                continueBtn.style.display =
+                    "flex";
+
+
+                /* Bersihkan token dari URL */
+
+                window.history.replaceState(
+                    {},
+                    document.title,
+                    window.location.pathname
+                );
+
+                return;
+            }
+
 
             verifyStatus.className =
                 "verify-status error";
@@ -1214,226 +1147,50 @@ async function onTelegramAuth(user){
                 '<i class="fa-solid fa-circle-xmark"></i> ' +
                 (
                     data.message ||
-                    "Login Telegram gagal."
+                    "Verifikasi gagal."
                 );
 
             return;
-        }
 
+        } catch (error) {
 
-        /* =====================================
-           TAMPILKAN USER
-           ===================================== */
-
-        const nama =
-            [
-                user.first_name,
-                user.last_name
-            ]
-            .filter(Boolean)
-            .join(" ");
-
-
-        verifyUser.style.display =
-            "block";
-
-
-        verifyUser.innerHTML =
-            '<i class="fa-solid fa-circle-check"></i> ' +
-            escapeTelegramHtml(
-                nama ||
-                "Telegram User"
-            ) +
-            (
-                user.username
-                    ? " &nbsp;@" +
-                      escapeTelegramHtml(
-                          user.username
-                      )
-                    : ""
-            );
-
-
-        /* =====================================
-           LANGSUNG CEK CHANNEL
-           ===================================== */
-
-        verifyStatus.className =
-            "verify-status";
-
-
-        verifyStatus.innerHTML =
-            '<i class="fa-solid fa-spinner fa-spin"></i> Memeriksa keanggotaan channel...';
-
-
-        await verifyTelegram();
-
-
-    }catch(error){
-
-        console.error(
-            "TELEGRAM AUTH ERROR:",
-            error
-        );
-
-
-        verifyStatus.className =
-            "verify-status error";
-
-
-        verifyStatus.innerHTML =
-            '<i class="fa-solid fa-triangle-exclamation"></i> Gagal menghubungi server.';
-    }
-
-}
-
-
-/* =========================================
-   VERIFY CHANNEL MEMBERSHIP
-   ========================================= */
-
-async function verifyTelegram(){
-
-    verifyStatus.className =
-        "verify-status";
-
-
-    verifyStatus.innerHTML =
-        '<i class="fa-solid fa-spinner fa-spin"></i> Memeriksa keanggotaan...';
-
-
-    continueBtn.style.display =
-        "none";
-
-
-    try{
-
-        const response =
-            await fetch(
-                VERIFY_API +
-                "?action=verify",
-                {
-                    method:"GET",
-
-                    credentials:"include",
-
-                    cache:"no-store"
-                }
-            );
-
-
-        const data =
-            await response.json();
-
-
-        console.log(
-            "VERIFY RESPONSE:",
-            data
-        );
-
-
-        if(
-            data.success === true &&
-            data.verified === true
-        ){
+            console.error(error);
 
             verifyStatus.className =
-                "verify-status success";
-
+                "verify-status error";
 
             verifyStatus.innerHTML =
-                '<i class="fa-solid fa-circle-check"></i> Verifikasi berhasil.';
-
-
-            continueBtn.style.display =
-                "flex";
-
-
-            /*
-             * Tidak menggunakan localStorage
-             * sebagai bukti keamanan.
-             *
-             * Session sebenarnya disimpan
-             * di HttpOnly cookie oleh backend.
-             */
+                '<i class="fa-solid fa-triangle-exclamation"></i> Server verifikasi gagal.';
 
             return;
         }
-
-
-        verifyStatus.className =
-            "verify-status error";
-
-
-        verifyStatus.innerHTML =
-            '<i class="fa-solid fa-circle-xmark"></i> ' +
-            (
-                data.message ||
-                "Kamu belum bergabung ke channel."
-            );
-
-
-    }catch(error){
-
-        console.error(
-            "VERIFY ERROR:",
-            error
-        );
-
-
-        verifyStatus.className =
-            "verify-status error";
-
-
-        verifyStatus.innerHTML =
-            '<i class="fa-solid fa-triangle-exclamation"></i> Gagal menghubungi server verifikasi.';
     }
 
-}
 
+    /* ==============================
+       CEK SESSION
+    ============================== */
 
-/* =========================================
-   CONTINUE
-   ========================================= */
-
-function continueWebsite(){
-
-    verifyOverlay.style.display =
-        "none";
-
-}
-
-
-/* =========================================
-   CHECK SESSION SAAT WEBSITE DIBUKA
-   ========================================= */
-
-async function checkTelegramSession(){
-
-    try{
+    try {
 
         const response =
             await fetch(
                 VERIFY_API +
                 "?action=verify",
                 {
-                    method:"GET",
-
-                    credentials:"include",
-
-                    cache:"no-store"
+                    credentials: "include",
+                    cache: "no-store"
                 }
             );
-
 
         const data =
             await response.json();
 
 
-        if(
+        if (
             data.success === true &&
             data.verified === true
-        ){
+        ) {
 
             verifyOverlay.style.display =
                 "none";
@@ -1442,73 +1199,61 @@ async function checkTelegramSession(){
         }
 
 
-    }catch(error){
+        verifyStatus.className =
+            "verify-status";
 
-        console.log(
-            "SESSION CHECK:",
-            error
-        );
+        verifyStatus.innerHTML =
+            '📱 Setelah Join Channel, buka bot ' +
+            '<b>@xlilnyxpribadibot</b> lalu tekan ' +
+            '<b>VERIFY MEMBERSHIP</b>.';
+
+
+    } catch (error) {
+
+        console.error(error);
+
+        verifyStatus.className =
+            "verify-status error";
+
+        verifyStatus.innerHTML =
+            "Gagal menghubungi server.";
+
     }
 
+}
 
-    /*
-     * Belum verified.
-     *
-     * Tampilkan popup dan widget.
-     */
+
+/* ==============================
+   CONTINUE
+============================== */
+
+function continueWebsite() {
 
     verifyOverlay.style.display =
-        "flex";
+        "none";
 
-
-    loadTelegramWidget();
 }
 
 
-/* =========================================
-   ESCAPE HTML
-   ========================================= */
-
-function escapeTelegramHtml(text){
-
-    return String(text)
-        .replace(
-            /&/g,
-            "&amp;"
-        )
-        .replace(
-            /</g,
-            "&lt;"
-        )
-        .replace(
-            />/g,
-            "&gt;"
-        )
-        .replace(
-            /"/g,
-            "&quot;"
-        )
-        .replace(
-            /'/g,
-            "&#039;"
-        );
-}
-
-
-/* =========================================
-   START TELEGRAM SYSTEM
-   ========================================= */
+/* ==============================
+   START
+============================== */
 
 document.addEventListener(
     "DOMContentLoaded",
-    function(){
+    () => {
 
-        checkTelegramSession();
+        continueBtn.style.display =
+            "none";
+
+        verifyTelegram();
 
     }
 );
+</script>
 
 const chatBox = document.getElementById("chatBox");
+
 function addMessage(text, sender){
     const msg = document.createElement("div");
     msg.className = `msg ${sender}`;
@@ -1682,4 +1427,4 @@ async function sendMessage(){
 </script>
 
 </body>
-</html>
+                </html>
