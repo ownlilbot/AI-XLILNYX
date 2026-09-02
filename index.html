@@ -1078,30 +1078,6 @@ body{
 
 </style>
 
-<!--
-====================================================
-TELEGRAM LOGIN WIDGET
-
-GANTI:
-USERNAME_BOT_KAMU
-
-Contoh:
-data-telegram-login="CotanceVerifyBot"
-
-JANGAN masukkan TOKEN BOT di sini.
-====================================================
--->
-
-<script
-    async
-    src="https://telegram.org/js/telegram-widget.js?22"
-    data-telegram-login="xlilnyxpribadibot"
-    data-size="large"
-    data-userpic="false"
-    data-request-access="write"
-    data-onauth="onTelegramAuth(user)"
-></script>
-
 </head>
 
 <body>
@@ -1162,10 +1138,34 @@ JANGAN masukkan TOKEN BOT di sini.
         LOGIN TELEGRAM
         -->
 
-        <div
-            class="telegram-login"
-            id="telegramLogin"
-        ></div>
+<div
+    class="telegram-login"
+    id="telegramLogin"
+>
+
+    <script
+        async
+        src="https://telegram.org/js/telegram-widget.js?22"
+        data-telegram-login="xlilnyxpribadibot"
+        data-size="large"
+        data-userpic="false"
+        data-request-access="write"
+        data-onauth="onTelegramAuth(user)"
+    ></script>
+
+</div>
+
+    <script
+        async
+        src="https://telegram.org/js/telegram-widget.js?22"
+        data-telegram-login="xlilnyxpribadibot"
+        data-size="large"
+        data-userpic="false"
+        data-request-access="write"
+        data-onauth="onTelegramAuth(user)"
+    ></script>
+
+</div>
 
 
         <button
@@ -1449,14 +1449,6 @@ function onTelegramAuth(user){
         "block";
 
 
-    /*
-     * Hanya menyimpan ID untuk
-     * informasi lokal.
-     *
-     * Keamanan sebenarnya dilakukan
-     * backend menggunakan hash Telegram.
-     */
-
     localStorage.setItem(
         "telegram_user_id",
         String(user.id)
@@ -1492,9 +1484,16 @@ async function verifyTelegram(){
             "verifyStatus"
         );
 
+
     const continueBtn =
         document.getElementById(
             "continueBtn"
+        );
+
+
+    const verifyUser =
+        document.getElementById(
+            "verifyUser"
         );
 
 
@@ -1515,10 +1514,12 @@ async function verifyTelegram(){
         status.className =
             "verify-status error";
 
+
         status.innerHTML =
             '<i class="fa-solid fa-circle-exclamation"></i> ' +
             'Akun Telegram belum terhubung. ' +
             'Silakan Login dengan Telegram terlebih dahulu.';
+
 
         return;
 
@@ -1594,8 +1595,7 @@ async function verifyTelegram(){
             if(data.owner === true){
 
                 verifyUser.innerHTML +=
-                    `<br>
-                     <b>👑 OWNER</b>`;
+                    `<br><b>👑 OWNER</b>`;
 
             }
 
@@ -1639,7 +1639,6 @@ async function verifyTelegram(){
     }
 
 }
-
 
 /* =========================================
    CONTINUE
