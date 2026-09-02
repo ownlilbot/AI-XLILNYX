@@ -1,1003 +1,458 @@
 const crypto = require("crypto");
 
-const TELEGRAM_CLIENT_ID =
-    process.env.TELEGRAM_CLIENT_ID;
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const CHANNEL = process.env.TELEGRAM_CHANNEL || "@allaboutxlilnyx";
 
-const TELEGRAM_CLIENT_SECRET =
-    process.env.TELEGRAM_CLIENT_SECRET;
+const OWNER_ID = "6282298313";
 
-const TELEGRAM_BOT_TOKEN =
-    process.env.TELEGRAM_BOT_TOKEN;
-
-const TELEGRAM_CHANNEL =
-    process.env.TELEGRAM_CHANNEL ||
-    "@allaboutxlilnyx";
-
-const OWNER_ID =
-    "6282298313";
-
-
-function base64url(buffer){
-
-    return Buffer
-        .from(buffer)
-        .toString("base64")
-        .replace(/\+/g, "-")
-        .replace(/\//g, "_")
-        .replace(/=/g, "");
-
-}
-
-
-function randomString(){
-
-    return base64url(
-        crypto.randomBytes(32)
-    );
-
-}
-
-
-function sha256Base64url(value){
-
-    return base64url(
-        crypto
-            .createHash("sha256")
-            .update(value)
-            .digest()
-    );
-
-}
-
-
-function parseCookies(req){
-
-    const header =
-        req.headers.cookie || "";
-
+function parseCookies(req) {
+    const header = req.headers.cookie || "";
     const cookies = {};
 
-    header
-        .split(";")
-        .forEach(part => {
+    header.split(";").forEach(part => {
+        const index = part.indexOf("=");
 
-            const index =
-                part.indexOf("=");
+        if (index === -1) return;
 
-            if(index === -1)
-                return;
+        const key = part.slice(0, index).trim();
+        const value = part.slice(index + 1).trim();
 
-            const key =
-                part
-                    .slice(0,index)
-                    .trim();
-
-            const value =
-                part
-                    .slice(index + 1)
-                    .trim();
-
-            cookies[key] =
-                decodeURIComponent(value);
-
-        });
+        cookies[key] = decodeURIComponent(value);
+    });
 
     return cookies;
-
 }
 
+function setCookie(res, name, value, maxAge = 3600) {
+    const cookie =
+        `${name}=${encodeURIComponent(value)}` +
+        `; Path=/` +
+        `; Max-Age=${maxAge}` +
+        `; HttpOnly` +
+        `; SameSite=Lax` +
+        `; Secure`;
 
-function signSession(payload){
-
-    const encoded =
-        base64url(
-            Buffer.from(
-                JSON.stringify(payload)
-            )
-        );
-
-    const signature =
-        crypto
-            .createHmac(
-                "sha256",
-                TELEGRAM_BOT_TOKEN
-            )
-            .update(encoded)
-            .digest("hex");
-
-    return encoded + "." + signature;
-
+    res.setHeader("Set-Cookie", cookie);
 }
 
+function createSession(user) {
+    const payload = {
+        id: Number(user.id),
+        name: user.first_name || user.name || "Telegram User",
+        username: user.username || "",
+        exp: Date.now() + 60 * 60 * 1000
+    };
 
-function verifySession(token){
+    const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
 
-    if(!token)
+    const signature = crypto
+        .createHmac("sha256", BOT_TOKEN)
+        .update(encoded)
+        .digest("hex");
+
+    return `${encoded}.${signature}`;
+}
+
+function verifySession(token) {
+    if (!token) return null;
+
+    const parts = token.split(".");
+
+    if (parts.length !== 2) return null;
+
+    const encoded = parts[0];
+    const signature = parts[1];
+
+    const expected = crypto
+        .createHmac("sha256", BOT_TOKEN)
+        .update(encoded)
+        .digest("hex");
+
+    if (signature.length !== expected.length) {
         return null;
-
-    const parts =
-        token.split(".");
-
-    if(parts.length !== 2)
-        return null;
-
-    const encoded =
-        parts[0];
-
-    const signature =
-        parts[1];
-
-    const expected =
-        crypto
-            .createHmac(
-                "sha256",
-                TELEGRAM_BOT_TOKEN
-            )
-            .update(encoded)
-            .digest("hex");
-
-    if(
-        signature.length !==
-        expected.length
-    ){
-
-        return null;
-
     }
 
-    if(
+    if (
         !crypto.timingSafeEqual(
             Buffer.from(signature),
             Buffer.from(expected)
         )
-    ){
-
+    ) {
         return null;
-
     }
 
-    try{
+    try {
+        const payload = JSON.parse(
+            Buffer.from(encoded, "base64url").toString("utf8")
+        );
 
-        const payload =
-            JSON.parse(
-                Buffer
-                    .from(
-                        encoded,
-                        "base64url"
-                    )
-                    .toString()
-            );
-
-        if(
-            !payload.exp ||
-            Date.now() >= payload.exp
-        ){
-
+        if (!payload.exp || Date.now() >= payload.exp) {
             return null;
-
         }
 
         return payload;
 
-    }catch{
-
+    } catch {
         return null;
-
     }
-
 }
 
-
-function setCookie(
-    res,
-    name,
-    value,
-    options = {}
-){
-
-    let cookie =
-        `${name}=${encodeURIComponent(value)}`;
-
-    cookie +=
-        "; Path=/";
-
-    if(options.maxAge !== undefined){
-
-        cookie +=
-            `; Max-Age=${options.maxAge}`;
-
+/*
+ * Validasi data Telegram Login Widget.
+ *
+ * Telegram mengirim:
+ * id
+ * first_name
+ * last_name
+ * username
+ * photo_url
+ * auth_date
+ * hash
+ *
+ * Hash dihitung menggunakan:
+ *
+ * SHA256(BOT_TOKEN)
+ *
+ * sebagai secret HMAC-SHA256.
+ */
+function verifyTelegramAuth(data) {
+    if (!data || !data.hash || !data.id || !data.auth_date) {
+        return false;
     }
 
-    if(options.httpOnly !== false){
+    const authDate = Number(data.auth_date);
 
-        cookie +=
-            "; HttpOnly";
-
+    if (!Number.isFinite(authDate)) {
+        return false;
     }
 
-    cookie +=
-        "; SameSite=Lax";
+    /*
+     * Tolak data login yang terlalu lama.
+     * 1 jam.
+     */
+    const now = Math.floor(Date.now() / 1000);
 
-    if(
-        process.env.VERCEL ||
-        process.env.NODE_ENV === "production"
-    ){
-
-        cookie +=
-            "; Secure";
-
+    if (Math.abs(now - authDate) > 3600) {
+        return false;
     }
 
-    res.setHeader(
-        "Set-Cookie",
-        cookie
+    const dataCheckString = Object.keys(data)
+        .filter(key => key !== "hash")
+        .sort()
+        .map(key => `${key}=${data[key]}`)
+        .join("\n");
+
+    const secretKey = crypto
+        .createHash("sha256")
+        .update(BOT_TOKEN)
+        .digest();
+
+    const calculatedHash = crypto
+        .createHmac("sha256", secretKey)
+        .update(dataCheckString)
+        .digest("hex");
+
+    if (calculatedHash.length !== data.hash.length) {
+        return false;
+    }
+
+    return crypto.timingSafeEqual(
+        Buffer.from(calculatedHash, "hex"),
+        Buffer.from(data.hash, "hex")
+    );
+}
+
+async function checkChannelMembership(userId) {
+    const response = await fetch(
+        `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember`,
+        {
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+                chat_id: CHANNEL,
+                user_id: Number(userId)
+            })
+        }
     );
 
-}
+    const data = await response.json();
 
-
-async function getTelegramKeys(){
-
-    const response =
-        await fetch(
-            "https://oauth.telegram.org/.well-known/jwks.json"
-        );
-
-    if(!response.ok){
-
+    if (!data.ok) {
         throw new Error(
-            "Tidak dapat mengambil JWKS Telegram."
+            data.description || "Gagal mengecek membership Telegram."
         );
-
     }
 
-    return response.json();
-
-}
-
-
-function findJwk(
-    keys,
-    kid
-){
-
-    return (
-        keys.keys || []
-    ).find(
-        key => key.kid === kid
-    );
-
-}
-
-
-function decodeJwtPart(
-    value
-){
-
-    return JSON.parse(
-        Buffer
-            .from(
-                value,
-                "base64url"
-            )
-            .toString()
-    );
-
-}
-
-
-async function verifyTelegramIdToken(
-    idToken
-){
-
-    const parts =
-        idToken.split(".");
-
-    if(parts.length !== 3){
-
-        throw new Error(
-            "Format ID token tidak valid."
-        );
-
-    }
-
-    const header =
-        decodeJwtPart(parts[0]);
-
-    const payload =
-        decodeJwtPart(parts[1]);
-
-    if(
-        header.alg !== "RS256"
-    ){
-
-        throw new Error(
-            "Algoritma token tidak didukung."
-        );
-
-    }
-
-    if(
-        payload.iss !==
-        "https://oauth.telegram.org"
-    ){
-
-        throw new Error(
-            "Issuer token tidak valid."
-        );
-
-    }
-
-    if(
-        String(payload.aud) !==
-        String(TELEGRAM_CLIENT_ID)
-    ){
-
-        throw new Error(
-            "Audience token tidak valid."
-        );
-
-    }
-
-    const now =
-        Math.floor(
-            Date.now() / 1000
-        );
-
-    if(
-        !payload.exp ||
-        payload.exp <= now
-    ){
-
-        throw new Error(
-            "Token Telegram sudah kedaluwarsa."
-        );
-
-    }
-
-    const keys =
-        await getTelegramKeys();
-
-    const jwk =
-        findJwk(
-            keys,
-            header.kid
-        );
-
-    if(!jwk){
-
-        throw new Error(
-            "Public key Telegram tidak ditemukan."
-        );
-
-    }
-
-    const publicKey =
-        crypto.createPublicKey({
-            key: jwk,
-            format: "jwk"
-        });
-
-    const verifier =
-        crypto.createVerify(
-            "RSA-SHA256"
-        );
-
-    verifier.update(
-        parts[0] +
-        "." +
-        parts[1]
-    );
-
-    verifier.end();
-
-    const valid =
-        verifier.verify(
-            publicKey,
-            Buffer
-                .from(
-                    parts[2],
-                    "base64url"
-                )
-        );
-
-    if(!valid){
-
-        throw new Error(
-            "Signature Telegram tidak valid."
-        );
-
-    }
-
-    return payload;
-
-}
-
-
-async function checkChannelMembership(
-    userId
-){
-
-    const response =
-        await fetch(
-            `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getChatMember`,
-            {
-                method:"POST",
-
-                headers:{
-                    "Content-Type":
-                        "application/json"
-                },
-
-                body:JSON.stringify({
-                    chat_id:
-                        TELEGRAM_CHANNEL,
-
-                    user_id:
-                        Number(userId)
-                })
-            }
-        );
-
-    const data =
-        await response.json();
-
-    if(!data.ok){
-
-        throw new Error(
-            data.description ||
-            "Telegram Bot API error."
-        );
-
-    }
-
-    const status =
-        data.result?.status;
+    const status = data.result?.status;
 
     return [
         "creator",
         "administrator",
         "member"
     ].includes(status);
-
 }
 
+module.exports = async function handler(req, res) {
 
-async function exchangeCode(
-    code,
-    redirectUri,
-    verifier
-){
+    try {
 
-    const credentials =
-        Buffer
-            .from(
-                `${TELEGRAM_CLIENT_ID}:${TELEGRAM_CLIENT_SECRET}`
-            )
-            .toString("base64");
-
-    const body =
-        new URLSearchParams({
-
-            grant_type:
-                "authorization_code",
-
-            code:
-                code,
-
-            redirect_uri:
-                redirectUri,
-
-            client_id:
-                String(
-                    TELEGRAM_CLIENT_ID
-                ),
-
-            code_verifier:
-                verifier
-
-        });
-
-    const response =
-        await fetch(
-            "https://oauth.telegram.org/token",
-            {
-                method:"POST",
-
-                headers:{
-                    "Content-Type":
-                        "application/x-www-form-urlencoded",
-
-                    "Authorization":
-                        `Basic ${credentials}`
-                },
-
-                body:
-                    body.toString()
-            }
-        );
-
-    const data =
-        await response.json();
-
-    if(!response.ok){
-
-        throw new Error(
-            data.error_description ||
-            data.error ||
-            "Gagal menukar authorization code."
-        );
-
-    }
-
-    return data;
-
-}
-
-
-module.exports = async function handler(
-    req,
-    res
-){
-
-    try{
-
-        if(req.method !== "GET" &&
-           req.method !== "POST"){
-
-            return res.status(405).json({
-                success:false,
-                message:"Method tidak diizinkan."
-            });
-
-        }
-
-
-        if(
-            !TELEGRAM_CLIENT_ID ||
-            !TELEGRAM_CLIENT_SECRET ||
-            !TELEGRAM_BOT_TOKEN
-        ){
-
+        if (!BOT_TOKEN) {
             return res.status(500).json({
-                success:false,
-                message:
-                    "Environment Telegram belum lengkap."
+                success: false,
+                message: "TELEGRAM_BOT_TOKEN belum diatur di Vercel."
             });
-
         }
 
-
-        const url =
-            new URL(
-                req.url,
-                `https://${req.headers.host}`
-            );
-
-        const action =
-            url.searchParams.get("action");
-
-
-        /*
-        =========================================
-        LOGIN
-        =========================================
-        */
-
-        if(action === "login"){
-
-            const state =
-                randomString();
-
-            const verifier =
-                randomString();
-
-            const challenge =
-                sha256Base64url(
-                    verifier
-                );
-
-            const redirectUri =
-                `${url.origin}/api/verify-telegram?action=callback`;
-
-
-            setCookie(
-                res,
-                "tg_state",
-                state,
-                {
-                    maxAge:600
-                }
-            );
-
-
-            setCookie(
-                res,
-                "tg_verifier",
-                verifier,
-                {
-                    maxAge:600
-                }
-            );
-
-
-            const authUrl =
-                new URL(
-                    "https://oauth.telegram.org/auth"
-                );
-
-            authUrl.searchParams.set(
-                "client_id",
-                String(
-                    TELEGRAM_CLIENT_ID
-                )
-            );
-
-            authUrl.searchParams.set(
-                "redirect_uri",
-                redirectUri
-            );
-
-            authUrl.searchParams.set(
-                "response_type",
-                "code"
-            );
-
-            authUrl.searchParams.set(
-                "scope",
-                "openid profile"
-            );
-
-            authUrl.searchParams.set(
-                "state",
-                state
-            );
-
-            authUrl.searchParams.set(
-                "code_challenge",
-                challenge
-            );
-
-            authUrl.searchParams.set(
-                "code_challenge_method",
-                "S256"
-            );
-
-
-            res.writeHead(
-                302,
-                {
-                    Location:
-                        authUrl.toString()
-                }
-            );
-
-            return res.end();
-
+        if (req.method !== "POST" && req.method !== "GET") {
+            return res.status(405).json({
+                success: false,
+                message: "Method tidak diizinkan."
+            });
         }
 
+        const url = new URL(
+            req.url,
+            `https://${req.headers.host}`
+        );
+
+        const action = url.searchParams.get("action");
 
         /*
-        =========================================
-        CALLBACK
-        =========================================
-        */
+         * ==========================================
+         * LOGIN
+         * ==========================================
+         */
 
-        if(action === "callback"){
+        if (action === "login") {
 
-            const code =
-                url.searchParams.get(
-                    "code"
-                );
+            return res.status(200).json({
+                success: true,
+                message: "Gunakan tombol Login Telegram pada halaman."
+            });
+        }
 
-            const state =
-                url.searchParams.get(
-                    "state"
-                );
+        /*
+         * ==========================================
+         * AUTH
+         * ==========================================
+         */
 
-            const error =
-                url.searchParams.get(
-                    "error"
-                );
+        if (action === "auth") {
 
+            let data = req.body;
 
-            if(error){
-
-                return res.redirect(
-                    "/?telegram_error=" +
-                    encodeURIComponent(
-                        error
-                    )
-                );
-
+            if (typeof data === "string") {
+                try {
+                    data = JSON.parse(data);
+                } catch {
+                    data = null;
+                }
             }
 
-
-            const cookies =
-                parseCookies(req);
-
-
-            if(
-                !state ||
-                !cookies.tg_state ||
-                state !== cookies.tg_state
-            ){
-
-                return res.status(400).send(
-                    "Telegram login gagal: state tidak valid."
-                );
-
-            }
-
-
-            if(!code){
-
-                return res.status(400).send(
-                    "Telegram login gagal: authorization code tidak ditemukan."
-                );
-
-            }
-
-
-            const verifier =
-                cookies.tg_verifier;
-
-
-            const redirectUri =
-                `${url.origin}/api/verify-telegram?action=callback`;
-
-
-            const tokenData =
-                await exchangeCode(
-                    code,
-                    redirectUri,
-                    verifier
-                );
-
-
-            if(!tokenData.id_token){
-
-                throw new Error(
-                    "Telegram tidak mengembalikan ID token."
-                );
-
-            }
-
-
-            const telegram =
-                await verifyTelegramIdToken(
-                    tokenData.id_token
-                );
-
-
-            const userId =
-                telegram.id ||
-                telegram.sub;
-
-
-            if(!userId){
-
-                throw new Error(
-                    "Telegram User ID tidak ditemukan."
-                );
-
-            }
-
-
-            const session =
-                signSession({
-
-                    id:
-                        Number(userId),
-
-                    name:
-                        telegram.name ||
-                        telegram.given_name ||
-                        "Telegram User",
-
-                    username:
-                        telegram.preferred_username ||
-                        "",
-
-                    exp:
-                        Date.now() +
-                        60 * 60 * 1000
-
+            if (!data) {
+                return res.status(400).json({
+                    success: false,
+                    verified: false,
+                    message: "Data Telegram tidak ditemukan."
                 });
+            }
 
+            /*
+             * Pastikan data benar-benar berasal
+             * dari Telegram.
+             */
+            if (!verifyTelegramAuth(data)) {
+
+                return res.status(401).json({
+                    success: false,
+                    verified: false,
+                    message: "Data login Telegram tidak valid."
+                });
+            }
+
+            /*
+             * Cek membership channel.
+             */
+            const joined = await checkChannelMembership(data.id);
+
+            if (!joined) {
+
+                return res.status(403).json({
+                    success: false,
+                    verified: false,
+                    joined: false,
+                    message:
+                        "Kamu belum bergabung ke channel Telegram."
+                });
+            }
+
+            /*
+             * Buat session server.
+             */
+            const session = createSession(data);
 
             setCookie(
                 res,
                 "cotance_session",
                 session,
-                {
-                    maxAge:
-                        60 * 60
-                }
+                60 * 60
             );
-
-
-            setCookie(
-                res,
-                "tg_state",
-                "",
-                {
-                    maxAge:0
-                }
-            );
-
-
-            setCookie(
-                res,
-                "tg_verifier",
-                "",
-                {
-                    maxAge:0
-                }
-            );
-
-
-            return res.redirect(
-                "/?telegram_login=success"
-            );
-
-        }
-
-
-        /*
-        =========================================
-        VERIFY MEMBERSHIP
-        =========================================
-        */
-
-        if(action === "verify"){
-
-            const cookies =
-                parseCookies(req);
-
-
-            const session =
-                verifySession(
-                    cookies.cotance_session
-                );
-
-
-            if(!session){
-
-                return res.status(401).json({
-                    success:false,
-                    verified:false,
-                    message:
-                        "Sesi Telegram belum tersedia."
-                });
-
-            }
-
-
-            const joined =
-                await checkChannelMembership(
-                    session.id
-                );
-
-
-            if(!joined){
-
-                return res.status(200).json({
-
-                    success:false,
-
-                    verified:false,
-
-                    message:
-                        "Kamu belum bergabung ke channel Telegram."
-
-                });
-
-            }
-
 
             const owner =
-                String(session.id) ===
-                OWNER_ID;
-
+                String(data.id) === OWNER_ID;
 
             return res.status(200).json({
+                success: true,
+                verified: true,
+                owner,
 
-                success:true,
-
-                verified:true,
-
-                owner:owner,
-
-                user:{
-
-                    id:
-                        session.id,
-
+                user: {
+                    id: Number(data.id),
                     name:
-                        session.name,
+                        data.first_name ||
+                        data.username ||
+                        "Telegram User",
 
                     username:
-                        session.username
-
+                        data.username || ""
                 },
 
-                message:
-                    "Verifikasi berhasil."
-
+                message: "Verifikasi berhasil."
             });
-
         }
 
+        /*
+         * ==========================================
+         * VERIFY SESSION
+         * ==========================================
+         */
+
+        if (action === "verify") {
+
+            const cookies = parseCookies(req);
+
+            const session = verifySession(
+                cookies.cotance_session
+            );
+
+            if (!session) {
+
+                return res.status(401).json({
+                    success: false,
+                    verified: false,
+                    message: "Belum login Telegram."
+                });
+            }
+
+            /*
+             * Cek membership lagi.
+             */
+            const joined =
+                await checkChannelMembership(session.id);
+
+            if (!joined) {
+
+                return res.status(403).json({
+                    success: false,
+                    verified: false,
+                    message:
+                        "Kamu sudah tidak tergabung di channel."
+                });
+            }
+
+            const owner =
+                String(session.id) === OWNER_ID;
+
+            return res.status(200).json({
+                success: true,
+                verified: true,
+                owner,
+
+                user: {
+                    id: session.id,
+                    name: session.name,
+                    username: session.username
+                },
+
+                message: "Verifikasi berhasil."
+            });
+        }
 
         /*
-        =========================================
-        SESSION INFO
-        =========================================
-        */
+         * ==========================================
+         * SESSION
+         * ==========================================
+         */
 
-        if(action === "session"){
+        if (action === "session") {
 
-            const cookies =
-                parseCookies(req);
+            const cookies = parseCookies(req);
 
-            const session =
-                verifySession(
-                    cookies.cotance_session
-                );
+            const session = verifySession(
+                cookies.cotance_session
+            );
 
-            if(!session){
+            if (!session) {
 
                 return res.status(200).json({
-                    loggedIn:false
+                    loggedIn: false
                 });
-
             }
 
             return res.status(200).json({
+                loggedIn: true,
 
-                loggedIn:true,
-
-                user:{
-                    id:session.id,
-                    name:session.name,
-                    username:session.username
+                user: {
+                    id: session.id,
+                    name: session.name,
+                    username: session.username
                 }
-
             });
-
         }
 
+        /*
+         * ==========================================
+         * LOGOUT
+         * ==========================================
+         */
+
+        if (action === "logout") {
+
+            setCookie(
+                res,
+                "cotance_session",
+                "",
+                0
+            );
+
+            return res.status(200).json({
+                success: true,
+                message: "Logout berhasil."
+            });
+        }
 
         return res.status(400).json({
-
-            success:false,
-
-            message:
-                "Action tidak dikenal."
-
+            success: false,
+            message: "Action tidak dikenal."
         });
 
-
-    }catch(error){
+    } catch (error) {
 
         console.error(
-            "TELEGRAM ERROR:",
+            "TELEGRAM VERIFY ERROR:",
             error
         );
 
         return res.status(500).json({
-
-            success:false,
-
-            verified:false,
-
+            success: false,
+            verified: false,
             message:
                 error.message ||
                 "Terjadi kesalahan server."
-
         });
-
     }
-
 };
